@@ -1,0 +1,4 @@
+# sysfixtime
+# boot
+# firewall
+# done
