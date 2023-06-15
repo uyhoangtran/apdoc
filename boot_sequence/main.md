@@ -1,4 +1,4 @@
-# 1. kernel time
+# 1. Kernel time
 *linux-kernel/init/main.c*
 
 - start_kernel
@@ -92,7 +92,7 @@ no function in this hook
 - uloop_run
 - uloop_done
 
-## States
+## states
 ### STATE_EARLY
 - watchdog_init(0)
 - hotplug("/etc/hotplug.json")
@@ -102,8 +102,7 @@ no function in this hook
 - fork udevtrigger
 - wait udevtrigger to complete => STATE_UBUS
 #### udevtrigger
-- scan_subdir
-	- device_list_insert
+- scan_subdir /sys
 ### STATE_UBUS
 - watchdog_init(0)
 - set_stdio("console")
@@ -117,7 +116,6 @@ no function in this hook
 - service_init(): init avl
 - service_start_early("ubus", ubus_cmd): start ubusd
 ### STATE_INIT
-
 - procd_inittab
 	- init init_action: 
 ::sysinit:/etc/init.d/rcS S boot
@@ -131,3 +129,24 @@ no function in this hook
 		- runqueue_init()
 		- \_rc(&q, "/etc/rc.d", "S", "\*", "boot")
 			- add boot functions in rc.d to runqueue
+- after all init done (runqueue_empty) =>init complete
+### STATE_RUNNING
+Do nothing.
+
+## the init scripts
+- init scripts for services are put in /etc/init.d/
+- each script define it START/STOP precedence by the defining the env variable START/STOP inside the script.
+	- If the service is enabled, it created the symlinks to the script itself, name S{\$START}{script_name} and K{$STOP}{script_name}, in /etc/rc.d/ By default, when building the firmware, Makefile implicitly make services enabled by creating the symlinks.
+	- in STATE_INIT, procd runs all the `/etc/rc.d/S* boot` in the alphabetical order.
+- Default functions for init scripts are defined in `/etc/rc.common`. Here are some popular functions:
+	- `boot` function directly call `start` in default.
+	- `start` function call `start_service` in default, but via the procd api.
+
+# Appendix
+## hotplug
+- *hotplug* is a feature enable a set of command to be executed when an event happen, such as new device inserted, interface up/down,... There are many processes that can do hotplug-call: procd takes care hotplug cause by uvent, while netifd may call iface hotplugs,...
+- Throughout the boot process, hotplug in procd is called twice: in preinit and in STATE_EARLY
+	- preinit hotplug: run an instance of procd listen to hotplug at preinit stage, parallel to the execution of preinit scripts and terminate when preinit finishes.
+	- procd hotplug: start listening to uevent messages at from the STATE_EARLY.
+		- coldplug devices: triggered right after the hotplug socket is listened.
+		- hotplug devices: triggered when device plugged in.
